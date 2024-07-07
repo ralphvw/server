@@ -168,6 +168,13 @@ int main()
                     }
                     else
                     {
+                        char method[16]; // Assuming method won't exceed 15 characters
+                        char url[1024];  // Assuming URL won't exceed 1023 characters
+                        sscanf(buffer, "%s %s", method, url);
+
+                        printf("Method: %s\n", method);
+                        printf("URL: %s\n", url);
+
                         // Echo received data back to client (for demonstration)
                         printf("Received %d bytes from socket %d: %s\n", nbytes, i, buffer);
                         send_http_response(i, "Hello world\n"); // Echo back to client
