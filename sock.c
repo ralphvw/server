@@ -7,6 +7,15 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <errno.h>
+#include <libpq-fe.h>
+#include "utils.c"
+#include "handlers.h"
+
+#define DBNAME "your_database_name"
+#define DBUSER "your_username"
+#define DBPASS "your_password"
+#define DBHOST "localhost" // or your PostgreSQL server hostname
+#define DBPORT "5432"
 
 #define MAX_CLIENTS 10
 
@@ -101,6 +110,58 @@ int main()
     FD_SET(sockfd, &master_fds);
     max_fd = sockfd;
 
+    EnvPair env_pairs[5]; // Adjust size based on the number of variables in .env
+    int num_env_pairs = read_env_file(".env", env_pairs, 5);
+
+    if (num_env_pairs < 0)
+    {
+        fprintf(stderr, "Failed to read .env file\n");
+        exit(1);
+    }
+
+    char *dbname = NULL;
+    char *dbuser = NULL;
+    char *dbpass = NULL;
+    char *dbhost = NULL;
+    char *dbport = NULL;
+
+    // Find values for database connection parameters
+    for (int i = 0; i < num_env_pairs; i++)
+    {
+        if (strcmp(env_pairs[i].key, "DBNAME") == 0)
+            dbname = env_pairs[i].value;
+        else if (strcmp(env_pairs[i].key, "DBUSER") == 0)
+            dbuser = env_pairs[i].value;
+        else if (strcmp(env_pairs[i].key, "DBPASS") == 0)
+            dbpass = env_pairs[i].value;
+        else if (strcmp(env_pairs[i].key, "DBHOST") == 0)
+            dbhost = env_pairs[i].value;
+        else if (strcmp(env_pairs[i].key, "DBPORT") == 0)
+            dbport = env_pairs[i].value;
+    }
+
+    // Check if all required parameters are found
+    if (!dbname || !dbuser || !dbpass || !dbhost || !dbport)
+    {
+        fprintf(stderr, "Missing required database connection parameters in .env file\n");
+        exit(1);
+    }
+
+    // Initialize PostgreSQL connection
+    char conn_str[200]; // Adjust size as needed
+    snprintf(conn_str, sizeof(conn_str), "dbname=%s user=%s password=%s host=%s port=%s",
+             dbname, dbuser, dbpass, dbhost, dbport);
+    PGconn *conn = PQconnectdb(conn_str);
+
+    if (PQstatus(conn) != CONNECTION_OK)
+    {
+        fprintf(stderr, "Connection to database failed: %s", PQerrorMessage(conn));
+        PQfinish(conn);
+        exit(1);
+    }
+
+    printf("Connected to database!\n");
+
     while (1)
     {                          // Infinite loop for handling multiple connections
         read_fds = master_fds; // Copy master set to select set
@@ -175,6 +236,11 @@ int main()
                         printf("Method: %s\n", method);
                         printf("URL: %s\n", url);
 
+                        if (strcmp(url, "/users") == 0 && strcmp(method, "GET") == 0)
+                        {
+                            handle_users_route(i, conn);
+                        }
+
                         // Echo received data back to client (for demonstration)
                         printf("Received %d bytes from socket %d: %s\n", nbytes, i, buffer);
                         send_http_response(i, "Hello world\n"); // Echo back to client
@@ -186,6 +252,8 @@ int main()
 
     // Close the listening socket (never actually reached in this example)
     close(sockfd);
+
+    PQfinish(conn);
 
     return 0;
 }
