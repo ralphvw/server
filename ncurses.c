@@ -3,6 +3,7 @@
 
 int main() {
   char letter;
+
   
   initscr();
   printw("Press any key");
