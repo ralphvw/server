@@ -32,6 +32,17 @@ int main(){
     if (x > 30) x = 30;
   }
 
+  else if (key == KEY_DOWN) {
+    y++;
+    
+    if(y > 30) y = 30;
+  }
+
+  else if (key == KEY_UP) {
+    y--;
+    if(x < 0) y = 0;
+  }
+
   }
 
   endwin();
