@@ -8,14 +8,8 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <libpq-fe.h>
-#include "utils.c"
+#include "utils.h"
 #include "handlers.h"
-
-#define DBNAME "your_database_name"
-#define DBUSER "your_username"
-#define DBPASS "your_password"
-#define DBHOST "localhost" // or your PostgreSQL server hostname
-#define DBPORT "5432"
 
 #define MAX_CLIENTS 10
 
@@ -25,20 +19,6 @@ void handle_error(const char *msg)
 {
     perror(msg);
     exit(1);
-}
-
-void send_http_response(int sockfd, const char *content)
-{
-    const char *response_fmt = "HTTP/1.0 200 OK\r\n"
-                               "Content-Length: %zu\r\n"
-                               "Content-Type: text/plain\r\n"
-                               "\r\n"
-                               "%s";
-
-    char response[1024]; // Adjust size as needed
-    snprintf(response, sizeof(response), response_fmt, strlen(content), content);
-
-    send(sockfd, response, strlen(response), 0);
 }
 
 int main()
@@ -110,7 +90,7 @@ int main()
     FD_SET(sockfd, &master_fds);
     max_fd = sockfd;
 
-    EnvPair env_pairs[5]; // Adjust size based on the number of variables in .env
+    EnvPair env_pairs[5];
     int num_env_pairs = read_env_file(".env", env_pairs, 5);
 
     if (num_env_pairs < 0)
@@ -119,39 +99,27 @@ int main()
         exit(1);
     }
 
-    char *dbname = NULL;
-    char *dbuser = NULL;
-    char *dbpass = NULL;
-    char *dbhost = NULL;
-    char *dbport = NULL;
+    char *database_url = NULL;
 
-    // Find values for database connection parameters
+    // Find the value for the DATABASE_URL parameter
     for (int i = 0; i < num_env_pairs; i++)
     {
-        if (strcmp(env_pairs[i].key, "DBNAME") == 0)
-            dbname = env_pairs[i].value;
-        else if (strcmp(env_pairs[i].key, "DBUSER") == 0)
-            dbuser = env_pairs[i].value;
-        else if (strcmp(env_pairs[i].key, "DBPASS") == 0)
-            dbpass = env_pairs[i].value;
-        else if (strcmp(env_pairs[i].key, "DBHOST") == 0)
-            dbhost = env_pairs[i].value;
-        else if (strcmp(env_pairs[i].key, "DBPORT") == 0)
-            dbport = env_pairs[i].value;
+        if (strcmp(env_pairs[i].key, "DATABASE_URL") == 0)
+        {
+            database_url = env_pairs[i].value;
+            break;
+        }
     }
 
-    // Check if all required parameters are found
-    if (!dbname || !dbuser || !dbpass || !dbhost || !dbport)
+    // Check if the required parameter is found
+    if (!database_url)
     {
-        fprintf(stderr, "Missing required database connection parameters in .env file\n");
+        fprintf(stderr, "Missing required DATABASE_URL parameter in .env file\n");
         exit(1);
     }
 
     // Initialize PostgreSQL connection
-    char conn_str[200]; // Adjust size as needed
-    snprintf(conn_str, sizeof(conn_str), "dbname=%s user=%s password=%s host=%s port=%s",
-             dbname, dbuser, dbpass, dbhost, dbport);
-    PGconn *conn = PQconnectdb(conn_str);
+    PGconn *conn = PQconnectdb(database_url);
 
     if (PQstatus(conn) != CONNECTION_OK)
     {
@@ -160,7 +128,8 @@ int main()
         exit(1);
     }
 
-    printf("Connected to database!\n");
+    // Connection is successful
+    printf("Connected to the database successfully\n");
 
     while (1)
     {                          // Infinite loop for handling multiple connections

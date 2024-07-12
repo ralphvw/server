@@ -1,3 +1,5 @@
 server
 .env
 .vscode
+server.dSYM/
+
