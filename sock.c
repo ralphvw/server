@@ -212,7 +212,7 @@ int main()
 
                         // Echo received data back to client (for demonstration)
                         printf("Received %d bytes from socket %d: %s\n", nbytes, i, buffer);
-                        send_http_response(i, "Hello world\n"); // Echo back to client
+                        send_http_response(i, "Hello there\n"); // Echo back to client
                     }
                 }
             }
