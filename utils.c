@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <libpq-fe.h>
+#include <sys/socket.h>
 
 // Define a structure to hold key-value pairs
 typedef struct
@@ -41,4 +43,58 @@ int read_env_file(const char *filename, EnvPair *env_pairs, int max_pairs)
 
     fclose(file);
     return count;
+}
+
+void prepare_json_response(char *json_response, PGresult *res)
+{
+    int rows = PQntuples(res);
+    int cols = PQnfields(res);
+
+    strcpy(json_response, "[");
+
+    for (int i = 0; i < rows; i++)
+    {
+        strcat(json_response, "{");
+
+        for (int j = 0; j < cols; j++)
+        {
+            char *value = PQgetvalue(res, i, j);
+            char *name = PQfname(res, j);
+
+            strcat(json_response, "\"");
+            strcat(json_response, name);
+            strcat(json_response, "\":\"");
+            strcat(json_response, value);
+            strcat(json_response, "\"");
+
+            if (j < cols - 1)
+            {
+                strcat(json_response, ",");
+            }
+        }
+
+        strcat(json_response, "}");
+
+        if (i < rows - 1)
+        {
+            strcat(json_response, ",");
+        }
+    }
+
+    strcat(json_response, "]");
+}
+
+// Function to send HTTP response
+void send_http_response(int sockfd, const char *content)
+{
+    const char *response_fmt = "HTTP/1.0 200 OK\r\n"
+                               "Content-Length: %zu\r\n"
+                               "Content-Type: application/json\r\n"
+                               "\r\n"
+                               "%s";
+
+    char response[4096]; // Adjust size as needed
+    snprintf(response, sizeof(response), response_fmt, strlen(content), content);
+
+    send(sockfd, response, strlen(response), 0);
 }

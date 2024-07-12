@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <libpq-fe.h> // PostgreSQL library
 #include "handlers.h"
+#include "utils.h"
 
 // Function to handle /users route
 void handle_users_route(int sockfd, PGconn *conn)
@@ -21,40 +22,8 @@ void handle_users_route(int sockfd, PGconn *conn)
 
     if (PQresultStatus(res) == PGRES_TUPLES_OK)
     {
-        int rows = PQntuples(res);
-        int cols = PQnfields(res);
-
-        // Prepare JSON response
         char json_response[4096]; // Adjust size as needed
-        strcpy(json_response, "[");
-
-        for (int i = 0; i < rows; i++)
-        {
-            strcat(json_response, "{");
-            for (int j = 0; j < cols; j++)
-            {
-                char *value = PQgetvalue(res, i, j);
-                char *name = PQfname(res, j);
-
-                strcat(json_response, "\"");
-                strcat(json_response, name);
-                strcat(json_response, "\":\"");
-                strcat(json_response, value);
-                strcat(json_response, "\"");
-
-                if (j < cols - 1)
-                {
-                    strcat(json_response, ",");
-                }
-            }
-            strcat(json_response, "}");
-
-            if (i < rows - 1)
-            {
-                strcat(json_response, ",");
-            }
-        }
-        strcat(json_response, "]");
+        prepare_json_response(json_response, res);
 
         // Send HTTP response with JSON data
         send_http_response(sockfd, json_response);
@@ -72,19 +41,4 @@ void handle_users_route(int sockfd, PGconn *conn)
 void handle_default_route(int sockfd, const char *method, const char *url)
 {
     send_http_response(sockfd, "Hello world\n");
-}
-
-// Function to send HTTP response
-void send_http_response(int sockfd, const char *content)
-{
-    const char *response_fmt = "HTTP/1.0 200 OK\r\n"
-                               "Content-Length: %zu\r\n"
-                               "Content-Type: application/json\r\n"
-                               "\r\n"
-                               "%s";
-
-    char response[4096]; // Adjust size as needed
-    snprintf(response, sizeof(response), response_fmt, strlen(content), content);
-
-    send(sockfd, response, strlen(response), 0);
 }

@@ -7,8 +7,8 @@ CC = gcc
 CFLAGS = -Wall -g
 
 # PostgreSQL library and includes
-LIBS = -lpq
-INCLUDES = -I/usr/local/opt/postgresql@14/include
+LIBS = -L/usr/local/opt/postgresql@14/lib/postgresql@14 -lpq
+INCLUDES = -I/usr/local/opt/postgresql@14/include/postgresql@14
 
 # Source files and executable
 SOURCES = sock.c utils.c handlers.c
